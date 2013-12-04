@@ -117,7 +117,6 @@ static int udpopenlog (const char *servername, int port) {
 }
 
 static void mysyslog (int fd, int logflags, int pri, char *tag, char *msg) {
-//TODO: buf is too small here
     char buf[MAX_LINE], pid[30], *cp, *tp;
     time_t now;
 
