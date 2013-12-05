@@ -1,0 +1,13 @@
+Source: mlogger
+Section: utils
+Priority: extra
+Maintainer: Nathan Brown <nbrown.us@gmail.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.3
+Homepage: https://github.com/nbrownus/mlogger
+
+Package: mlogger
+Architecture: amd64 i386
+Depends:
+Description: Log to syslog from the command line
+ Just like `logger` but more massive
