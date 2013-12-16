@@ -51,6 +51,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <getopt.h>
@@ -66,6 +67,7 @@
 int decode (char *, CODE *);
 int pencode (char *);
 long strtol_or_err (const char *str, const char *errmesg);
+int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec);
 
 static int optd = 0;
 static int udpport = 514;
@@ -152,17 +154,19 @@ static void usage (FILE *out) {
     fputs("mlogger [options] [message]\n", out);
 
     fputs("\nOptions:\n", out);
-    fputs(" -d, --udp             use UDP (TCP is default)\n"
-          " -i, --id              log the process ID too\n"
-          " -f, --file <file>     log the contents of this file\n"
-          " -h, --help            display this help text and exit\n", out);
-    fputs(" -n, --server <name>   write to this remote syslog server\n"
-          " -P, --port <number>   use this UDP port\n"
-          " -p, --priority <prio> mark given message with this priority\n"
-          " -s, --stderr          output message to standard error as well\n", out);
-    fputs(" -t, --tag <tag>       mark every line with this tag\n"
-          " -u, --socket <socket> write to this Unix socket\n"
-          " -V, --version         output version information and exit\n\n", out);
+    fputs(" -d, --udp              use UDP (TCP is default)\n"
+          " -i, --id               log the process ID too\n"
+          " -f, --file <file>      log the contents of this file\n"
+          " -h, --help             display this help text and exit\n", out);
+    fputs(" -n, --server <name>    write to this remote syslog server\n"
+          " -P, --port <number>    use this UDP port\n"
+          " -p, --priority <prio>  mark given message with this priority\n"
+          " -s, --stderr           output message to standard error as well\n", out);
+    fputs(" -t, --tag <tag>        mark every line with this tag\n"
+          " -u, --socket <socket>  write to this Unix socket\n"
+          " -I, --indent <ms>      Will consider intended lines continuation of the previous line, within the timeout\n"
+          "                        specified in milliseconds\n"
+          " -V, --version          output version information and exit\n\n", out);
 
     exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
 }
@@ -175,6 +179,10 @@ int main (int argc, char **argv) {
     int ch, logflags, pri;
     char *tag, buf[MAX_LINE];
     char *usock = NULL;
+    long timeout_ms;
+    long timeout_sec;
+    long timeout_usec;
+    int indent_mode;
     char *udpserver = NULL;
     int LogSock = -1;
     long tmpport;
@@ -189,6 +197,7 @@ int main (int argc, char **argv) {
         { "udp",      no_argument,        0, 'd' },
         { "server",   required_argument,  0, 'n' },
         { "port",     required_argument,  0, 'P' },
+        { "indent",   required_argument,  0, 'I' },
         { "version",  no_argument,        0, 'V' },
         { "help",     no_argument,        0, 'h' },
         { NULL,       0,                  0, 0   }
@@ -198,7 +207,7 @@ int main (int argc, char **argv) {
     pri = LOG_NOTICE;
     logflags = 0;
 
-    while ((ch = getopt_long(argc, argv, "f:ip:st:u:dn:P:Vh", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "f:ip:st:u:dI:n:P:Vh", longopts, NULL)) != -1) {
         switch((char) ch) {
             case 'f': /* file to log */
                 if (freopen(optarg, "r", stdin) == NULL)
@@ -247,6 +256,16 @@ int main (int argc, char **argv) {
             case 'V':
                 printf("%s %s\n", PROGRAM_NAME, PROGRAM_VERSION);
                 exit(EXIT_SUCCESS);
+
+            case 'I':
+                indent_mode = 1;
+                timeout_ms = atol(optarg);
+                
+                if (timeout_ms < 1) {
+                    errx(EXIT_FAILURE, "Invalid value for timeout %li", timeout_ms);
+                }
+
+                break;
 
             case 'h':
                 usage(stdout);
@@ -313,6 +332,24 @@ int main (int argc, char **argv) {
             }
         }
 
+    } else if (indent_mode) {
+        int len;
+
+        timeout_sec = timeout_ms / 1000;
+        timeout_usec = (timeout_ms % 1000) * 1000;
+
+        while ((len = readBlock(buf, MAX_LINE, timeout_sec, timeout_usec)) != EOF) {
+            //fprintf(stderr, "Got buf %i\n", len);
+            if (len > 0 && buf[len - 1] == '\n') {
+                buf[len - 1] = '\0';
+            }
+
+            if (!usock) {
+                syslog(pri, "%s", buf);
+            } else {
+                mysyslog(LogSock, logflags, pri, tag, buf);
+            }
+        }
     } else {
         while (fgets(buf, sizeof(buf), stdin) != NULL) {
             /* glibc is buggy and adds an additional newline, so we have to remove it here until glibc is fixed */
@@ -337,6 +374,65 @@ int main (int argc, char **argv) {
     }
 
     return EXIT_SUCCESS;
+}
+
+/*
+ * Reads blocks of text from standard in
+ * This will attempt to keep things like stack traces together in a single "log line"
+ * Any line that starts with a tab or space will be considered part of the previous line, if there was one
+ * If no continuation lines were received within the current line is considered complete
+ * This will block until there is at least 1 line, the maximum amount of time to receive a line is the timeout
+ */
+int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec) {
+    fd_set set;
+    struct timeval timeout;
+    int retval;
+    int offset = 0;
+    int nextc;
+
+    while (1) {
+        FD_ZERO(&set);
+        FD_SET(fileno(stdin), &set);
+
+        timeout.tv_sec = timeout_sec;
+        timeout.tv_usec = timeout_usec;
+
+        retval = select(fileno(stdin) + 1, &set, NULL, NULL, &timeout);
+
+        if (retval == -1) {
+            goto err;
+        } else if (retval == 0) {
+            //We have something to return and the poll had nothing to give us
+            if (offset > 0) {
+                return offset;
+            }
+        }
+
+        if (offset > 0) {
+            if ((nextc = fgetc(stdin)) == EOF) {
+                goto err;
+            }
+
+            ungetc(nextc, stdin);
+            if (nextc != '\t' && nextc != ' ') {
+                return offset;
+            }
+        }
+
+        //We may sit here if we have nothing in the buffer already
+        if (fgets(buf + offset, maxlen - offset, stdin) == NULL) {
+            goto err;
+        }
+
+        offset = strlen(buf);
+    }
+
+err:
+    if (offset > 0) {
+        return offset;
+    }
+
+    return EOF;
 }
 
 /*
