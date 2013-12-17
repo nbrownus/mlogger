@@ -260,7 +260,7 @@ int main (int argc, char **argv) {
             case 'I':
                 indent_mode = 1;
                 timeout_ms = atol(optarg);
-                
+
                 if (timeout_ms < 1) {
                     errx(EXIT_FAILURE, "Invalid value for timeout %li", timeout_ms);
                 }

@@ -1,3 +1,10 @@
+mlogger (1.1.0) precise; urgency=low
+
+  * Support for indented line continuation
+  * Added a manpage
+
+ -- Nathan Brown <nbrown.us@gmail.com>  Wed, 16 Dec 2013 16:39:41 -0800
+
 mlogger (1.0.0) precise; urgency=low
 
   * Initial release
