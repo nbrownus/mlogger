@@ -61,7 +61,7 @@
 #include <syslog.h>
 
 #define PROGRAM_NAME "mlogger"
-#define PROGRAM_VERSION "1.0.0"
+#define PROGRAM_VERSION "1.1.0"
 #define MAX_LINE 65536
 
 int decode (char *, CODE *);
