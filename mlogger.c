@@ -61,7 +61,7 @@
 #include <syslog.h>
 
 #define PROGRAM_NAME "mlogger"
-#define PROGRAM_VERSION "1.1.0"
+#define PROGRAM_VERSION "1.1.1"
 #define MAX_LINE 65536
 
 int decode (char *, CODE *);
@@ -388,6 +388,7 @@ int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec) {
     struct timeval timeout;
     int retval;
     int offset = 0;
+    int size = maxlen;
     int nextc;
 
     while (1) {
@@ -420,11 +421,19 @@ int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec) {
         }
 
         //We may sit here if we have nothing in the buffer already
-        if (fgets(buf + offset, maxlen - offset, stdin) == NULL) {
+        if (fgets(buf + offset, size, stdin) == NULL) {
             goto err;
         }
 
         offset = strlen(buf);
+        size = maxlen - offset;
+
+        //Covers the case where the next char is likely a newline
+        //but we can't read it in and null terminate the string
+        //Or we have exhausted the buffer
+        if (size <= 1) {
+            return offset;
+        }
     }
 
 err:
