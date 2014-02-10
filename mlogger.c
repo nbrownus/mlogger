@@ -179,7 +179,7 @@ int main (int argc, char **argv) {
     int ch, logflags, pri;
     char *tag, buf[MAX_LINE];
     char *usock = NULL;
-    long timeout_ms;
+    long timeout_ms = 100;
     long timeout_sec;
     long timeout_usec;
     int indent_mode = 0;
