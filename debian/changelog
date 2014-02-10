@@ -1,9 +1,10 @@
-mlogger (1.1.0) precise; urgency=low
+mlogger (1.1.1) precise; urgency=low
 
-  * Support for indented line continuation
-  * Added a manpage
+  * BUG indent_mode may be used even if not specified
+  * BUG indent_mode would loop indefinitely if the buffer was almost full and
+    the next char was a newline
 
- -- Nathan Brown <nbrown.us@gmail.com>  Wed, 16 Dec 2013 16:39:41 -0800
+ -- Nathan Brown <nbrown.us@gmail.com>  Mon, 10 Feb 2014 11:46:11 -0800
 
 mlogger (1.0.0) precise; urgency=low
 
