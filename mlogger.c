@@ -182,7 +182,7 @@ int main (int argc, char **argv) {
     long timeout_ms;
     long timeout_sec;
     long timeout_usec;
-    int indent_mode;
+    int indent_mode = 0;
     char *udpserver = NULL;
     int LogSock = -1;
     long tmpport;
@@ -259,7 +259,7 @@ int main (int argc, char **argv) {
 
             case 'I':
                 indent_mode = 1;
-                timeout_ms = atol(optarg);
+                timeout_ms = strtol_or_err(optarg, "failed to parse timeout number");
 
                 if (timeout_ms < 1) {
                     errx(EXIT_FAILURE, "Invalid value for timeout %li", timeout_ms);
