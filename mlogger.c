@@ -325,7 +325,7 @@ int main (int argc, char **argv) {
         }
 
         if (p != buf) {
-            if (!usock) {
+            if (!usock && !udpserver) {
                 syslog(pri, "%s", buf);
             } else {
                 mysyslog(LogSock, logflags, pri, tag, buf);
@@ -344,7 +344,7 @@ int main (int argc, char **argv) {
                 buf[len - 1] = '\0';
             }
 
-            if (!usock) {
+            if (!usock && !udpserver) {
                 syslog(pri, "%s", buf);
             } else {
                 mysyslog(LogSock, logflags, pri, tag, buf);
@@ -359,7 +359,7 @@ int main (int argc, char **argv) {
                 buf[len - 1] = '\0';
             }
 
-            if (!usock) {
+            if (!usock && !udpserver) {
                 syslog(pri, "%s", buf);
             } else {
                 mysyslog(LogSock, logflags, pri, tag, buf);
@@ -367,7 +367,7 @@ int main (int argc, char **argv) {
         }
     }
 
-    if (!usock) {
+    if (!usock && !udpserver) {
         closelog();
     } else {
         close(LogSock);
