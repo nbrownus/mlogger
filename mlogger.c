@@ -75,7 +75,7 @@ int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec);
 
 static int optd = 0;
 static int udpport = 514;
-static int dgram_size_limit = 400; /* original DGRAM size limit, based on minimal UDP datagram */
+static int msg_size_limit = 400; /* original DGRAM size limit, based on minimal UDP datagram */
 
 static int myopenlog (const char *sock) {
    int fd;
@@ -97,10 +97,16 @@ static int myopenlog (const char *sock) {
        err(EXIT_FAILURE, "connect %s", sock);
    }
 
-   optlen = sizeof(dgram_size_limit);
-   if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF,
-                  &dgram_size_limit, &optlen) == -1) {
-      err(EXIT_FAILURE, "getsockopt %s", sock);
+   if (optd) {
+       /* Datagram Unix Socket: limit msg size to kernel send-buffer size */
+       optlen = sizeof(msg_size_limit);
+       if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF,
+                  &msg_size_limit, &optlen) == -1) {
+          err(EXIT_FAILURE, "getsockopt %s", sock);
+       }
+   } else {
+       /* Stream Unix Socket: use the configured maximum size. */
+       msg_size_limit = MAX_LINE;
    }
 
    return fd;
@@ -160,7 +166,7 @@ static void mysyslog (int fd, int logflags, int pri, char *tag, char *msg) {
         if (prefix_len>=(int)sizeof(buf)) {
             return; /* error: sizeof(buf) was too small, even for the prefix */
         }
-        msg_len = MIN((int)sizeof(buf)-prefix_len-1, dgram_size_limit);
+        msg_len = MIN((int)sizeof(buf)-prefix_len-1, msg_size_limit);
         strncat(buf,msg,msg_len);
 
         if (write(fd, buf, strlen(buf) + 1) < 0) {
