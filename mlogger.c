@@ -188,6 +188,8 @@ static void usage (FILE *out) {
           "                        specified in milliseconds\n"
           " -V, --version          output version information and exit\n\n", out);
 
+    fprintf(out,"This mlogger is configured to send messages up to %d bytes.\n\n", MAX_LINE);
+
     exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
