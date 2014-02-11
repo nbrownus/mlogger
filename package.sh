@@ -1,7 +1,8 @@
 #!/bin/bash
 shopt -s extglob
 
-make clean
+make clean docs
+
 rm -rf ./release
 MLOGGER_VERSION=`sed -n 's/.*(\(.\+\?\)).*/\1/p' debian/changelog | head -n1`
 mkdir -p ./release/source

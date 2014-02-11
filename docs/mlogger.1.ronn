@@ -1,0 +1,102 @@
+mlogger(1) -- Make massive entries in the system log
+===========================================================
+
+## SYNOPSIS
+
+`mlogger` [`-dhisV`] [`-f` <file>] [`-n` <server>] [`-P` <port>] [`-p` <pri>] [`-t` <tag>] [`-u` <socket>] [`-I` <ms>]
+[--] [<message>]
+
+## DESCRIPTION
+
+**mlogger** makes massive entries in the system log.  It provides a shell command interface to the syslog(3) system log module.
+
+**mlogger** is a fork of logger, patched to allow for extremely long log line as well as indented multi line support
+
+## OPTIONS
+
+  * `-d`, `--udp`:
+    Use datagram (UDP) instead of the default stream connection (TCP).
+
+  * `-i`, --`id`:
+    Log the process ID of the mlogger process with each line.
+
+  * `-f`, --`file` <file>:
+    Log the contents of the specified <file>. This option cannot be combined with a command-line message.
+
+  * `-h`, --`help`:
+    Display a help text and exit.
+
+  * `-n`, --`server` <server>:
+    Write to the specified remote syslog <server> using UDP instead of to the builtin syslog routines.
+
+  * `-P`, --`port` <port>:
+    Use the specified UDP port. The default <port> number is 514.
+
+  * `-p`, --`priority` <priority>:
+    Enter the message into the log with the specified <priority>. The priority may be specified numerically or as a
+    _facility.level_ pair. For example, `-p local3.info` logs the message as informational in the local3 facility.
+    The default is _user.notice_. See [PRIORITY VALUES][]
+
+  * `-s`, --`stderr`:
+    Output the message to standard error as well as to the system log.
+
+  * `-t`, --`tag` <tag>:
+    Mark every line to be logged with the specified <tag>.
+
+  * `-u`, --`socket` <socket>:
+    Write to the specified <socket> instead of to the builtin syslog routines.
+
+  * `-I`, --`indent` <ms>:
+    Consider lines indented with a space or tab continuation of the previous line. If no new log lines have been received
+    by the timeout <ms> the current line will be logged as is.
+
+    There is no default value for <ms>
+
+  * `-V`, --`version`:
+    Display version information and exit.
+
+  * `--`:
+    Optional, ends the argument list. This is to allow the message to start with a hyphen (-).
+
+  <message> Write the message to log; if not specified, and the `-f` flag is not provided, standard input is logged.
+
+## RETURN VALUES
+
+The `mlogger` utility exits _0_ on success, and _>0_ if an error occurs.
+
+## PRIORITY VALUES
+
+Valid facility names are: _auth_, _authpriv_ (for security information of a sensitive nature), _cron_, _daemon_, _ftp_,
+_kern_ (can't be generated from user process), _lpr_, _mail_, _news_, _security_ (deprecated synonym for _auth_),
+_syslog_, _user_, _uucp_, and _local0_ to _local7_, inclusive.
+
+Valid level names are: _alert_, _crit_, _debug_, _emerg_, _err_, _error_ (deprecated synonym for err), _info_, _notice_,
+_panic_ (deprecated synonym for _emerg_), _warning_, _warn_ (deprecated synonym for _warning_).
+
+For the priority order and intended purposes of these levels, see syslog(3).
+
+## EXAMPLES
+
+Log a message as the current user default priority
+
+    mlogger System rebooted
+
+Log the contents of _/dev/idmc_ with the _local0.notice_ priority, and _HOSTIDM_ tag
+
+    mlogger -p local0.notice -t HOSTIDM -f /dev/idmc
+
+Log a message to the server _loghost.example.com_
+
+    mlogger -n loghost.example.com System rebooted
+
+Log a multi line message
+
+    printf "waiting 20ms for line continuation\n\tpart of the previous line" | mlogger -I20
+
+## BUGS
+
+All bugs can be reported at the main repository in github https://github.com/nbrownus/mlogger
+
+## SEE ALSO
+
+syslog(3), syslogd(8)
