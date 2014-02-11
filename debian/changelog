@@ -1,3 +1,10 @@
+mlogger (1.1.2) precise; urgency=low
+
+  * BUG udp/dgram messages weren't as long as they could have been
+  * BUG not always using the right logging function when udp was enabled
+
+ -- Nathan Brown <nbrown.us@gmail.com>  Mon, 10 Feb 2014 16:12:54 -0800
+
 mlogger (1.1.1) precise; urgency=low
 
   * BUG indent_mode may be used even if not specified
