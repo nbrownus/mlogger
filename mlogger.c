@@ -65,7 +65,7 @@
 #endif
 
 #define PROGRAM_NAME "mlogger"
-#define PROGRAM_VERSION "1.1.1"
+#define PROGRAM_VERSION "1.1.2"
 #define MAX_LINE 65536
 
 int decode (char *, CODE *);
@@ -100,9 +100,8 @@ static int myopenlog (const char *sock) {
    if (optd) {
        /* Datagram Unix Socket: limit msg size to kernel send-buffer size */
        optlen = sizeof(msg_size_limit);
-       if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF,
-                  &msg_size_limit, &optlen) == -1) {
-          err(EXIT_FAILURE, "getsockopt %s", sock);
+       if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &msg_size_limit, &optlen) == -1) {
+            err(EXIT_FAILURE, "getsockopt %s", sock);
        }
    } else {
        /* Stream Unix Socket: use the configured maximum size. */
@@ -163,11 +162,12 @@ static void mysyslog (int fd, int logflags, int pri, char *tag, char *msg) {
         tp = ctime(&now) + 4;
 
         prefix_len = snprintf(buf, sizeof(buf), "<%d>%.15s %.200s%s: ", pri, tp, cp, pid);
-        if (prefix_len>=(int)sizeof(buf)) {
+        if (prefix_len >= (int) sizeof(buf)) {
             return; /* error: sizeof(buf) was too small, even for the prefix */
         }
-        msg_len = MIN((int)sizeof(buf)-prefix_len-1, msg_size_limit);
-        strncat(buf,msg,msg_len);
+
+        msg_len = MIN((int) sizeof(buf) - prefix_len - 1, msg_size_limit);
+        strncat(buf, msg, msg_len);
 
         if (write(fd, buf, strlen(buf) + 1) < 0) {
             return; /* error */
@@ -194,7 +194,7 @@ static void usage (FILE *out) {
           "                        specified in milliseconds\n"
           " -V, --version          output version information and exit\n\n", out);
 
-    fprintf(out,"This mlogger is configured to send messages up to %d bytes.\n\n", MAX_LINE);
+    fprintf(out, "This mlogger is configured to send messages up to %d bytes.\n\n", MAX_LINE);
 
     exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
 }
