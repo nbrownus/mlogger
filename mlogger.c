@@ -60,6 +60,10 @@
 #define SYSLOG_NAMES
 #include <syslog.h>
 
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+
 #define PROGRAM_NAME "mlogger"
 #define PROGRAM_VERSION "1.1.1"
 #define MAX_LINE 65536
@@ -71,10 +75,12 @@ int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec);
 
 static int optd = 0;
 static int udpport = 514;
+static int msg_size_limit = 400; /* original DGRAM size limit, based on minimal UDP datagram */
 
 static int myopenlog (const char *sock) {
    int fd;
    static struct sockaddr_un s_addr; /* AF_UNIX address of local logger */
+   socklen_t optlen;
 
    if (strlen(sock) >= sizeof(s_addr.sun_path)) {
        errx(EXIT_FAILURE, "openlog %s: pathname too long", sock);
@@ -89,6 +95,18 @@ static int myopenlog (const char *sock) {
 
    if (connect(fd, (struct sockaddr *) &s_addr, sizeof(s_addr)) == -1) {
        err(EXIT_FAILURE, "connect %s", sock);
+   }
+
+   if (optd) {
+       /* Datagram Unix Socket: limit msg size to kernel send-buffer size */
+       optlen = sizeof(msg_size_limit);
+       if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF,
+                  &msg_size_limit, &optlen) == -1) {
+          err(EXIT_FAILURE, "getsockopt %s", sock);
+       }
+   } else {
+       /* Stream Unix Socket: use the configured maximum size. */
+       msg_size_limit = MAX_LINE;
    }
 
    return fd;
@@ -118,9 +136,12 @@ static int udpopenlog (const char *servername, int port) {
     return fd;
 }
 
+
 static void mysyslog (int fd, int logflags, int pri, char *tag, char *msg) {
     char buf[MAX_LINE], pid[30], *cp, *tp;
     time_t now;
+    int prefix_len;
+    int msg_len;
 
     if (fd > -1) {
         if (logflags & LOG_PID) {
@@ -141,7 +162,12 @@ static void mysyslog (int fd, int logflags, int pri, char *tag, char *msg) {
         (void) time(&now);
         tp = ctime(&now) + 4;
 
-        snprintf(buf, sizeof(buf), "<%d>%.15s %.200s%s: %.400s", pri, tp, cp, pid, msg);
+        prefix_len = snprintf(buf, sizeof(buf), "<%d>%.15s %.200s%s: ", pri, tp, cp, pid);
+        if (prefix_len>=(int)sizeof(buf)) {
+            return; /* error: sizeof(buf) was too small, even for the prefix */
+        }
+        msg_len = MIN((int)sizeof(buf)-prefix_len-1, msg_size_limit);
+        strncat(buf,msg,msg_len);
 
         if (write(fd, buf, strlen(buf) + 1) < 0) {
             return; /* error */
@@ -167,6 +193,8 @@ static void usage (FILE *out) {
           " -I, --indent <ms>      Will consider intended lines continuation of the previous line, within the timeout\n"
           "                        specified in milliseconds\n"
           " -V, --version          output version information and exit\n\n", out);
+
+    fprintf(out,"This mlogger is configured to send messages up to %d bytes.\n\n", MAX_LINE);
 
     exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
 }
