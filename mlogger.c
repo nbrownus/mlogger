@@ -74,7 +74,7 @@ long strtol_or_err (const char *str, const char *errmesg);
 int readBlock (char *buf, int maxlen, long timeout_sec, long timeout_usec);
 
 static int optd = 0;
-static int udpport = 514;
+static const char* udpport = "514";
 static int msg_size_limit = 400; /* original DGRAM size limit, based on minimal UDP datagram */
 
 static int myopenlog (const char *sock) {
@@ -111,25 +111,41 @@ static int myopenlog (const char *sock) {
    return fd;
 }
 
-static int udpopenlog (const char *servername, int port) {
-    int fd;
-    struct sockaddr_in s_addr;
-    struct hostent *serverhost;
+static int udpopenlog (const char *servername, const char *port) {
+    struct addrinfo hints, *res, *ressave;
+    int fd = -1, result = -1;
 
-    if ((serverhost = gethostbyname(servername)) == NULL ) {
-        errx(EXIT_FAILURE, "unable to resolve '%s'", servername);
+    /* initialise addrinfo structure */
+    bzero(&hints, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    result = getaddrinfo(servername, port, &hints, &res);
+    if(result != 0) {
+        errx(EXIT_FAILURE, "unable to resolve '%s:%s': %s", servername, port, gai_strerror(result));
     }
+    ressave=res;
 
-    if ((fd = socket(AF_INET, SOCK_DGRAM , 0)) == -1) {
-        err(EXIT_FAILURE, "socket");
-    }
+    do {
+        fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if (fd >= 0) {
+            result = connect(fd, res->ai_addr, res->ai_addrlen);
+            if (result == 0) {
+                // Success
+                break;
+            } else {
+                warn("connect");
+                close(fd);
+            }
+        }
 
-    bcopy(serverhost->h_addr, &s_addr.sin_addr, serverhost->h_length);
-    s_addr.sin_family = AF_INET;
-    s_addr.sin_port = htons(port);
+    } while ((res=res->ai_next) != NULL);
 
-    if (connect(fd, (struct sockaddr *) &s_addr, sizeof(s_addr)) == -1) {
-        err(EXIT_FAILURE, "connect");
+    freeaddrinfo(ressave);
+
+    if (fd < 0) {
+        errx(EXIT_FAILURE, "unable to connect to: %s", servername);
     }
 
     return fd;
@@ -213,7 +229,6 @@ int main (int argc, char **argv) {
     int indent_mode = 0;
     char *udpserver = NULL;
     int LogSock = -1;
-    long tmpport;
 
     static const struct option longopts[] = {
         { "id",       no_argument,        0, 'i' },
@@ -272,13 +287,7 @@ int main (int argc, char **argv) {
                 break;
 
             case 'P': /* change udp port */
-                tmpport = strtol_or_err(optarg, "failed to parse port number");
-
-                if (tmpport < 0 || 65535 < tmpport) {
-                    errx(EXIT_FAILURE, "port `%ld' out of range", tmpport);
-                }
-
-                udpport = (int) tmpport;
+                udpport = optarg;
                 break;
 
             case 'V':
