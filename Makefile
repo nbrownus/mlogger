@@ -8,6 +8,6 @@ clean:
 	rm -f docs/*.1
 
 docs:
-	ronn -r docs/*.ronn
+	/usr/local/bin/ronn -r docs/*.ronn
 
 .PHONY: docs
